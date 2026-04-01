@@ -255,7 +255,7 @@ h1 {
     const gif = new GIF({ workers: 2, quality: 8, workerScript: await workerSrc(), width: W, height: H });
 
     for (let i = 0; i < n; i++) {
-      v.currentTime = (i / n) * dur;
+      v.currentTime = Math.max(0.05, (i / n) * dur);
       await ev(v, 'seeked');
       ctx.drawImage(v, 0, 0, W, H);
       gif.addFrame(cv, { copy: true, delay: 1000 / fps });
