@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>gif</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant:ital,wght@1,500&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/gif.js@0.2.0/dist/gif.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+```
+html, body {
+  height: 100%;
+  background: #080808;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
+  gap: 44px;
+  padding: 32px 20px 48px;
+}
+
+/* ── Title ── */
+h1 {
+  font-family: 'Cormorant', serif;
+  font-style: italic;
+  font-weight: 500;
+  font-size: 1.55rem;
+  letter-spacing: 0.18em;
+  color: rgba(255,255,255,0.55);
+  user-select: none;
+}
+
+/* ── Circle button ── */
+.zone {
+  position: relative;
+  width: min(200px, 56vw);
+  height: min(200px, 56vw);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
+}
+
+.zone svg.ring {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.track { fill: none; stroke: #151515; stroke-width: 1; }
+
+.arc {
+  fill: none;
+  stroke: #c6fb4b;
+  stroke-width: 1;
+  stroke-linecap: round;
+  transform: rotate(-90deg);
+  transform-origin: 50% 50%;
+  transition: stroke-dashoffset 0.1s linear;
+  opacity: 0;
+}
+
+.inner {
+  position: absolute;
+  inset: 9px;
+  border-radius: 50%;
+  background: #0f0f0f;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s, transform 0.15s;
+}
+
+.zone:hover  .inner { background: #141414; transform: scale(1.025); }
+.zone:active .inner { transform: scale(0.975); }
+.zone.busy          { pointer-events: none; }
+
+.upload-icon {
+  width: 28px; height: 28px;
+  stroke: #2a2a2a;
+  stroke-width: 1.4;
+  stroke-linecap: round; stroke-linejoin: round;
+  fill: none;
+  transition: stroke 0.2s;
+}
+.zone:hover .upload-icon { stroke: #3a3a3a; }
+.zone.busy  .upload-icon { display: none; }
+
+.pct {
+  display: none;
+  font-family: 'Cormorant', serif;
+  font-style: italic;
+  font-size: 1.3rem;
+  font-weight: 500;
+  color: #c6fb4b;
+  letter-spacing: 0.05em;
+}
+.zone.busy .pct { display: block; }
+
+#file-input { display: none; }
+
+/* ── Results ── */
+.results {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  max-width: 360px;
+}
+
+.card {
+  border-radius: 14px;
+  overflow: hidden;
+  background: #0d0d0d;
+  border: 1px solid #141414;
+  animation: rise 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.card img { width: 100%; display: block; }
+
+.card footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 13px;
+}
+
+.card footer span {
+  font-family: 'Cormorant', serif;
+  font-style: italic;
+  font-size: 0.82rem;
+  color: #2a2a2a;
+  letter-spacing: 0.06em;
+}
+
+.save {
+  padding: 7px 15px;
+  border-radius: 100px;
+  background: #c6fb4b;
+  color: #111;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s, transform 0.1s;
+}
+.save:active { transform: scale(0.95); }
+```
+
+  </style>
+</head>
+<body>
+
+  <h1>gif</h1>
+
+  <div class="zone" id="zone" role="button" tabindex="0">
+    <svg class="ring" viewBox="0 0 200 200">
+      <circle class="track" cx="100" cy="100" r="96"/>
+      <circle class="arc"   cx="100" cy="100" r="96" id="arc"/>
+    </svg>
+    <div class="inner">
+      <svg class="upload-icon" viewBox="0 0 24 24">
+        <polyline points="16 16 12 12 8 16"/>
+        <line x1="12" y1="12" x2="12" y2="21"/>
+        <path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3"/>
+      </svg>
+      <span class="pct" id="pct">0%</span>
+    </div>
+  </div>
+
+  <input type="file" id="file-input" accept="video/*" multiple />
+  <div class="results" id="results"></div>
+
+<script>
+(async () => {
+  const zone  = document.getElementById('zone');
+  const input = document.getElementById('file-input');
+  const pctEl = document.getElementById('pct');
+  const arc   = document.getElementById('arc');
+  const res   = document.getElementById('results');
+
+  const C = 2 * Math.PI * 96;
+  arc.style.strokeDasharray  = C;
+  arc.style.strokeDashoffset = C;
+
+  const setP = p => {
+    arc.style.opacity = p > 0 ? 1 : 0;
+    arc.style.strokeDashoffset = C * (1 - p);
+    pctEl.textContent = Math.round(p * 100) + '%';
+  };
+
+  zone.addEventListener('click',   () => { if (!zone.classList.contains('busy')) input.click(); });
+  zone.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') input.click(); });
+  zone.addEventListener('dragover', e => e.preventDefault());
+  zone.addEventListener('drop', e => { e.preventDefault(); go([...e.dataTransfer.files].filter(f => f.type.startsWith('video/'))); });
+  input.addEventListener('change', () => { go([...input.files]); input.value = ''; });
+
+  let queue = [], busy = false;
+  const go   = files => { queue.push(...files); if (!busy) next(); };
+
+  async function next() {
+    if (!queue.length) { busy = false; return; }
+    busy = true;
+    zone.classList.add('busy');
+    setP(0);
+    try { addCard(await convert(queue.shift(), setP)); } catch(e) { console.error(e); }
+    zone.classList.remove('busy');
+    setP(0);
+    setTimeout(next, 120);
+  }
+
+  let wURL = null;
+  const workerSrc = async () => {
+    if (wURL) return wURL;
+    const t = await fetch('https://unpkg.com/gif.js@0.2.0/dist/gif.worker.js').then(r => r.text());
+    wURL = URL.createObjectURL(new Blob([t], { type: 'text/javascript' }));
+    return wURL;
+  };
+
+  async function convert(file, onP) {
+    const url = URL.createObjectURL(file);
+    const v   = Object.assign(document.createElement('video'), { muted: true, playsInline: true, src: url });
+    v.load();
+    await ev(v, 'loadedmetadata');
+
+    const dur = Math.min(v.duration, 10), fps = 10, n = Math.round(dur * fps);
+    const sc  = Math.min(480 / v.videoWidth, 480 / v.videoHeight, 1);
+    const W   = Math.round(v.videoWidth * sc), H = Math.round(v.videoHeight * sc);
+    const cv  = Object.assign(document.createElement('canvas'), { width: W, height: H });
+    const ctx = cv.getContext('2d');
+
+    const gif = new GIF({ workers: 2, quality: 8, workerScript: await workerSrc(), width: W, height: H });
+
+    for (let i = 0; i < n; i++) {
+      v.currentTime = (i / n) * dur;
+      await ev(v, 'seeked');
+      ctx.drawImage(v, 0, 0, W, H);
+      gif.addFrame(cv, { copy: true, delay: 1000 / fps });
+      onP(0.04 + 0.73 * (i / n));
+    }
+    URL.revokeObjectURL(url);
+    onP(0.8);
+
+    return new Promise((ok, ko) => {
+      gif.on('progress', p => onP(0.8 + 0.18 * p));
+      gif.on('finished', b => { onP(1); ok(b); });
+      gif.on('error', ko);
+      gif.render();
+    });
+  }
+
+  const ev = (el, e) => new Promise((ok, ko) => {
+    el.addEventListener(e,       ok, { once: true });
+    el.addEventListener('error', ko, { once: true });
+  });
+
+  function addCard(blob) {
+    const url  = URL.createObjectURL(blob);
+    const kb   = (blob.size / 1024).toFixed(0) + ' KB';
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `<img src="${url}"/><footer><span>${kb}</span><button class="save">Enregistrer</button></footer>`;
+    card.querySelector('.save').addEventListener('click', async () => {
+      const file = new File([blob], 'animation.gif', { type: 'image/gif' });
+      if (navigator.canShare?.({ files: [file] })) {
+        try { await navigator.share({ files: [file] }); return; } catch(e) { if (e.name === 'AbortError') return; }
+      }
+      Object.assign(document.createElement('a'), { href: url, download: 'animation.gif' }).click();
+    });
+    res.prepend(card);
+  }
+})();
+</script>
+
+</body>
+</html>
